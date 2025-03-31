@@ -24,7 +24,6 @@ class Phone(Field):
 class Birthday(Field):
     def __init__(self, value):
         try:
-            # Перевіряємо формат дати
             datetime.strptime(value, "%d.%m.%Y")
             super().__init__(value)
         except ValueError:
@@ -35,17 +34,17 @@ class Record:
     def __init__(self, name):
         self.name = Name(name)
         self.phones = []
-        self.birthday = None  # Додаємо поле для дня народження
+        self.birthday = None
 
     def add_phone(self, phone):
-        new_phone = Phone(phone)  # Якщо phone невалідний, це викличе ValueError
+        new_phone = Phone(phone)
         self.phones.append(new_phone)
 
     def remove_phone(self, phone):
         self.phones = [p for p in self.phones if p.value != phone]
 
     def edit_phone(self, old_phone, new_phone):
-        Phone(new_phone)  # Якщо new_phone невалідний, це викличе ValueError
+        Phone(new_phone)
         for p in self.phones:
             if p.value == old_phone:
                 p.value = new_phone
@@ -60,7 +59,7 @@ class Record:
         return None
 
     def add_birthday(self, birthday):
-        self.birthday = Birthday(birthday)  # Якщо birthday невалідний, це викличе ValueError
+        self.birthday = Birthday(birthday)
 
     def __str__(self):
         phones = ", ".join(p.value for p in self.phones) if self.phones else "No phones"
@@ -86,7 +85,7 @@ class AddressBook(UserDict):
             if record.birthday:
                 # Парсимо дату народження
                 bday = datetime.strptime(record.birthday.value, "%d.%m.%Y")
-                # Замінюємо рік на поточний, щоб порівняти з сьогоднішньою датою
+                # Замінюємо рік на поточний
                 bday_this_year = bday.replace(year=today.year)
                 # Якщо день народження вже був цього року, перевіряємо наступний рік
                 if bday_this_year < today:
@@ -94,7 +93,19 @@ class AddressBook(UserDict):
                 # Перевіряємо, чи день народження в межах 7 днів від сьогодні
                 delta = (bday_this_year - today).days
                 if 0 <= delta <= 7:
-                    upcoming.append(record)
+                    # Визначаємо дату привітання
+                    congratulation_date = bday_this_year
+                    # Перевіряємо, чи день народження припадає на вихідний
+                    weekday = congratulation_date.weekday()  # 0 - понеділок, 5 - субота, 6 - неділя
+                    if weekday == 5:  # Субота
+                        congratulation_date += timedelta(days=2)  # Переносимо на понеділок
+                    elif weekday == 6:  # Неділя
+                        congratulation_date += timedelta(days=1)  # Переносимо на понеділок
+                    # Додаємо контакт і дату привітання
+                    upcoming.append({
+                        "name": record.name.value,
+                        "congratulation_date": congratulation_date.strftime("%d.%m.%Y")
+                    })
         return upcoming
 
 # Декоратор для обробки помилок введення
@@ -108,6 +119,8 @@ def input_error(func):
 
 # Функція для парсингу введення користувача
 def parse_input(user_input):
+    if not user_input.strip():  # Перевіряємо, чи рядок пустий
+        return "", []
     cmd, *args = user_input.strip().lower().split()
     return cmd, args
 
@@ -176,7 +189,8 @@ def birthdays(args, book: AddressBook):
     upcoming = book.get_upcoming_birthdays()
     if not upcoming:
         return "No upcoming birthdays in the next 7 days."
-    return "\n".join(str(record) for record in upcoming)
+    # Формуємо вивід: лише ім'я та дата привітання
+    return "\n".join(f"{entry['name']}: {entry['congratulation_date']}" for entry in upcoming)
 
 # Головна функція
 def main():
@@ -189,6 +203,8 @@ def main():
         if command in ["close", "exit"]:
             print("Good bye!")
             break
+        elif command == "":
+            print("Please enter a command.")
         elif command == "hello":
             print("How can I help you?")
         elif command == "add":
